@@ -24,26 +24,23 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # Создаем .env для docker-compose из секретов
       - name: Create .env file for service
-        working-directory: ./simbirsoft_sdet_project
+        working-directory: ${{ github.workspace }}/simbirsoft_sdet_project
         run: |
-          # Используйте здесь те же имена, что и в ваших GitHub Secrets
           echo "HTTP_PORT=${{ secrets.HTTP_PORT }}" >> .env
           echo "POSTGRES_USER=${{ secrets.POSTGRES_USER }}" >> .env
           echo "POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}" >> .env
           echo "POSTGRES_DB=${{ secrets.POSTGRES_DB }}" >> .env
           echo "POSTGRES_PORT=${{ secrets.POSTGRES_PORT }}" >> .env
-          echo "POSTGRES_HOST=postgres" >> .env # Важно для связи контейнеров
+          echo "POSTGRES_HOST=postgres" >> .env
 
       - name: Start API Service and DB
-        working-directory: ./simbirsoft_sdet_project
+        working-directory: ${{ github.workspace }}/simbirsoft_sdet_project
         run: docker compose up --build -d
 
       - name: Wait for service to be healthy
         run: |
           echo "Waiting for service to be ready..."
-          # Пытаемся подключиться к порту в течение 60 секунд
           timeout 60s bash -c 'until nc -z $0 $1; do sleep 5; done' localhost ${{ secrets.HTTP_PORT }}
 
       - name: Run Pytest
@@ -51,19 +48,22 @@ jobs:
           BASE_URL: http://localhost:${{ secrets.HTTP_PORT }}
         run: pytest -n auto --alluredir=allure-results --clean-alluredir
 
-      # Собираем логи Docker, если тесты упали
       - name: Get Docker logs on failure
         if: failure()
-        working-directory: ./simbirsoft_sdet_project
+        working-directory: ${{ github.workspace }}/simbirsoft_sdet_project
         run: docker compose logs
 
       - name: Tear down services
         if: always()
-        working-directory: ./simbirsoft_sdet_project
+        working-directory: ${{ github.workspace }}/simbirsoft_sdet_project
         run: docker compose down
 
+      - name: Set up Allure
+        if: always()
+        uses: allure-framework/setup-allure@v1
+
       - name: Generate Allure Report
-        if: success() || failure()
+        if: always()
         run: allure generate allure-results --clean -o allure-report
 
       - name: Upload Allure Report
