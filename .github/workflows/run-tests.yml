@@ -5,6 +5,7 @@ on:
     branches: [ "main", "develop", "master" ]
   pull_request:
     branches: [ "main", "develop", "master" ]
+  workflow_dispatch:
 
 jobs:
   run-api-tests:
@@ -40,12 +41,10 @@ jobs:
 
       - name: Wait for service to be healthy
         run: |
-          echo "Waiting for service to be ready..."
+          echo "Waiting for API service to be ready..."
           timeout 60s bash -c 'until nc -z $0 $1; do sleep 5; done' localhost ${{ secrets.HTTP_PORT }}
 
       - name: Run Pytest
-        env:
-          BASE_URL: http://localhost:${{ secrets.HTTP_PORT }}
         run: pytest -n auto --alluredir=allure-results --clean-alluredir
 
       - name: Get Docker logs on failure
@@ -58,17 +57,11 @@ jobs:
         working-directory: ${{ github.workspace }}/simbirsoft_sdet_project
         run: docker compose down
 
-      - name: Set up Allure
+      - name: Allure Report with History
         if: always()
-        uses: allure-framework/setup-allure-commandline@v1
-
-      - name: Generate Allure Report
-        if: always()
-        run: allure generate allure-results --clean -o allure-report
-
-      - name: Upload Allure Report
-        if: always()
-        uses: actions/upload-artifact@v4
+        uses: simple-elf/allure-report-with-history@v1.0
         with:
-          name: allure-report
-          path: allure-report
+          allure_results: allure-results
+          gh_pages: gh-pages
+          allure_history: allure-history
+          github_token: ${{ secrets.GITHUB_TOKEN }}
