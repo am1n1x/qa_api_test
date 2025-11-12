@@ -1,13 +1,10 @@
 name: API Tests CI
 
-# Триггеры: когда запускать этот процесс
 on:
-  # Запускать при каждом push в основную ветку
   push:
-    branches: [ "main", "master" ]
-  # Запускать при создании Pull Request в основную ветку
+    branches: [ "main", "develop", "master" ]
   pull_request:
-    branches: [ "main", "master" ]
+    branches: [ "main", "develop", "master" ]
 
 jobs:
   run-api-tests:
@@ -27,29 +24,50 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Start API Service
+      # Создаем .env для docker-compose из секретов
+      - name: Create .env file for service
+        working-directory: ./simbirsoft_sdet_project
+        run: |
+          # Используйте здесь те же имена, что и в ваших GitHub Secrets
+          echo "HTTP_PORT=${{ secrets.HTTP_PORT }}" >> .env
+          echo "POSTGRES_USER=${{ secrets.POSTGRES_USER }}" >> .env
+          echo "POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}" >> .env
+          echo "POSTGRES_DB=${{ secrets.POSTGRES_DB }}" >> .env
+          echo "POSTGRES_PORT=${{ secrets.POSTGRES_PORT }}" >> .env
+          echo "POSTGRES_HOST=postgres" >> .env # Важно для связи контейнеров
+
+      - name: Start API Service and DB
+        working-directory: ./simbirsoft_sdet_project
         run: docker-compose up --build -d
 
-      - name: Wait for services to be ready
-        run: sleep 15
+      - name: Wait for service to be healthy
+        run: |
+          echo "Waiting for service to be ready..."
+          # Пытаемся подключиться к порту в течение 60 секунд
+          timeout 60s bash -c 'until nc -z $0 $1; do sleep 5; done' localhost ${{ secrets.HTTP_PORT }}
 
       - name: Run Pytest
-        run: pytest -n auto --alluredir=allure-results
+        env:
+          BASE_URL: http://localhost:${{ secrets.HTTP_PORT }}
+        run: pytest -n auto --alluredir=allure-results --clean-alluredir
 
-      # Шаг (только если тесты упали): Собираем логи Docker для отладки
+      # Собираем логи Docker, если тесты упали
       - name: Get Docker logs on failure
         if: failure()
+        working-directory: ./simbirsoft_sdet_project
         run: docker-compose logs
 
-      - name: Set up Allure
-        uses: allure-framework/setup-allure@v1
-        with:
-          version: 2.15.0
+      - name: Tear down services
+        if: always()
+        working-directory: ./simbirsoft_sdet_project
+        run: docker-compose down
 
       - name: Generate Allure Report
+        if: success() || failure()
         run: allure generate allure-results --clean -o allure-report
 
       - name: Upload Allure Report
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: allure-report
