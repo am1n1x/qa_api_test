@@ -60,7 +60,7 @@ jobs:
 
       - name: Set up Allure
         if: always()
-        uses: allure-framework/setup-allure@v1
+        uses: allure-framework/setup-allure-commandline@v1
 
       - name: Generate Allure Report
         if: always()
