@@ -3,3 +3,5 @@
 .pytest_cache/
 allure-results/
 __pycache__/
+.env
+simbirsoft_sdet_project/.env

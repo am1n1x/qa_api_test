@@ -5,6 +5,7 @@ from api.requests.base_requests_api import EntityApiClient
 from data.data_api import create_entity_payload
 
 load_dotenv()
+BASE_URL = os.getenv("BASE_URL", "http://localhost:8080")
 
 @pytest.fixture(scope="session")
 def api_client() -> EntityApiClient:
