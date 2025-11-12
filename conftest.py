@@ -16,15 +16,15 @@ def api_client() -> EntityApiClient:
 
 
 @pytest.fixture(scope="function")
-def created_entity_id(api_client: EntityApiClient) -> int:
+def created_entity_id(api_client: EntityApiClient) -> tuple[int, dict]:
     """
-    Фикстура для создания сущности перед тестом и её удаления после.
+    Фикстура для создания уникальной сущности перед тестом и её удаления после.
     """
-    payload = create_entity_payload(title="Entity for testing")
+    payload = create_entity_payload() 
     response = api_client.create_entity(payload)
     assert response.status_code == 200, "Не удалось создать сущность для теста"
     entity_id = int(response.text)
 
-    yield entity_id
+    yield entity_id, payload.model_dump()
 
     api_client.delete_entity(entity_id)
