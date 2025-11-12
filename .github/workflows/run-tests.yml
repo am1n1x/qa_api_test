@@ -59,7 +59,7 @@ jobs:
 
       - name: Allure Report with History
         if: always()
-        uses: simple-elf/allure-report-with-history@v1.0
+        uses: simple-elf/allure-report-with-history@main
         with:
           allure_results: allure-results
           gh_pages: gh-pages
